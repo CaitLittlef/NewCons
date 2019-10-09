@@ -1,0 +1,340 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+Image extraction & processing for New Conservation Debate
+
+
+
+************** IMAGES ALREADY EXTRACTED!! IF YOU JUST WANT TO PULL SMALL SAMPLE, DO SETUP (INCLUDING UPDATING FOLDER NAMES tO ROUND N), THEN START AT LINE ~289 *******************
+
+
+
+```{r setup, include=FALSE}
+# Load packages
+# install.packages("dplyr")
+# install.packages("tidyr")
+# install.packages("pdftools")
+# install.packages("tesseract")
+library(dplyr)
+library(tidyr)
+library(pdftools)
+library(tesseract)
+
+# Round N
+dir.create("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_ROUND6", showWarnings = TRUE)
+
+setwd("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate")
+wd <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate")
+report.dir <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_pdfs")
+image.out.dir <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images")
+pilot.dir <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_PILOT")
+round.6.dir <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_ROUND6")
+
+
+# Or, if I'm on GOSHAWK
+# wd <- ("D:/Shared/BackedUp/Caitlin/NewConsDebate")
+# image.out.dir <- ("D:/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images")
+# round.2.dir <- ("D:/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_ROUND2")
+
+# Text extraction functions
+left = function(text, num_char) {
+  substr(text, 1, num_char)
+}
+ 
+mid = function(text, start_num, num_char) {
+  substr(text, start_num, start_num + num_char - 1)
+}
+ 
+right = function(text, num_char) {
+  substr(text, nchar(text) - (num_char-1), nchar(text))
+}
+```
+
+```{r NAMING CONVENTIONS, include=FALSE}
+# Renaming AR pdfs to be simple abbrebiation (3 letters) then year.
+# N.b., most of these have been cleaned by Sarah (pre-2017) and no longer have cover. All 2017 have cover.
+
+# Renaming files operates on working directory so asking to rename from subdirectory won't work.
+# Temporarily reset workding directory; do iteratively for each organizations.
+# setwd(paste0(report.dir, "/Environmental Defense Fund - Copy"))
+
+# # List all pdfs and rename them by simple abbrebiation and year. CONFIRM YEARS ARE IN ORDER!
+# list.files(pattern = ".pdf")
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0("EDF_",2005:2017,".pdf"))
+
+# setwd(paste0(report.dir, "/Environmental Defense Fund"))
+# (temp <- list.files(pattern = ".pdf"))
+# temp2 <- mid(temp,5,4)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0("EDF_",temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Natural Resource Defense Council"))
+# (temp <- list.files(pattern = ".pdf"))
+# temp2 <- left(temp, 9)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Natural Resource Defense Council"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- left(temp,4))
+# temp2 <- paste0("NRD_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Conservation International"))
+# (temp <- list.files(pattern = ".pdf"))
+# yrs <- mid(temp,4,4)
+# temp2 <- paste0("CIn_", yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Conservation International"))
+# (temp <- list.files(pattern = ".pdf"))
+# yrs <- mid(temp,15,4)
+# temp2 <- paste0("CIn_", yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+
+# setwd(paste0(report.dir, "/Sierra Club Foundation"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,5,4))
+# temp2 <- paste0("SCF_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/The Nature Conservancy"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,5,4))
+# temp2 <- paste0("TNC_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Wildlife Conservation Society"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,5,4))
+# temp2 <- paste0("WCS_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/World Wildlife Fund"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,5,4))
+# temp2 <- paste0("WWF_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Defenders of Wildlife"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,5,4))
+# temp2 <- paste0("DW_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Defenders of Wildlife"))
+# file.remove("DOW_2016.pdf")
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,25,4))
+# temp2 <- paste0("DOW_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# setwd(paste0(report.dir, "/Oceana"))
+# (temp <- list.files(pattern = ".pdf"))
+# (yrs <- mid(temp,3,4))
+# temp2 <- paste0("OCN_",yrs)
+# file.rename(list.files(pattern = ".pdf"),
+#             paste0(temp2,".pdf"))
+
+# Reset working directory
+setwd("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate")
+
+```
+
+```{r TABLE OF PDFS, include=FALSE}
+
+# List all folders in Annual Reports directory
+org.folders <- list.files(report.dir, full.names = T)
+# org.names <- list.files(report.dir, full.names = F)
+org.folders <- matrix(org.folders) # Matrices easier to work with than character elements.
+
+# List all pdfs by iteratively combining conents of all folders into one matrix
+ar.path <- NULL
+ar.paths <- NULL
+ar.pdf <- NULL
+ar.pdfs <- NULL
+ar.org <- NULL
+ar.orgs <- NULL
+ar.year <- NULL
+ar.years <- NULL
+ar <- NULL
+num.loops <- 1:length(org.folders)
+for (i in num.loops){
+  ar.path <- matrix(list.files(org.folders[i], pattern = ".pdf", full.names = T)) # Capture ann reports paths
+  ar.paths <- rbind(ar.paths,ar.path) # Combine contents of all folders into one matrix
+  ar.pdf <- matrix(list.files(org.folders[i], pattern = ".pdf", full.names = F)) # Just get name of ann report
+  ar.pdfs <- rbind(ar.pdfs,ar.pdf)
+  ar.year <- right(ar.pdf, 8) %>% left(4)
+  ar.years <- rbind(ar.years, ar.year)
+  ar.org <- left(ar.pdf, 3)
+  ar.orgs <- rbind(ar.orgs, ar.org)
+  ar <- cbind(ar.orgs, ar.years, ar.pdfs, ar.paths)
+}
+
+# Count number of pages in each pdf (could embed this in loop above, but this is just simpler)
+info <- NULL
+ar.pg <- NULL
+ar.pgs <- NULL
+num.loops <- 1:nrow(ar)
+for (i in num.loops){
+  info <- pdf_info(ar[i,4]) # pdf_info pulls meta-data from pdf.
+  ar.pg <- matrix(info[[2]]) # element #2 in that list is number of pages
+  ar.pgs <- rbind(ar.pgs, ar.pg)
+}
+
+# Combine into one main table of ar attributes
+ar <- cbind(ar, ar.pgs)
+
+# Clean-up
+# remove(list = ls(pattern = "ar.")) # ls() gives list of objects that match pattern
+# remove(org.folders, path, pdf)
+# 
+```
+# 
+# 
+```{r ID RANDOM PAGE NUMBERS, include=FALSE}
+# Generate random numbers (shooting for 4, initially 12 in case of duds) based on how many pages are in report
+samp <- NULL
+samps <- NULL
+num.loops <- 1:nrow(ar)
+for (i in num.loops){
+  ar.pgs <- ar[i,5]
+  samp <- sample(1:ar.pgs, 12, replace=F)  # target is 4 images but 12 here in case of duds
+  samps <- rbind(samps, samp)
+}
+
+# Create matrix that has all org info and sorted pages to pull image from
+ar.samp <- cbind(ar,samps)
+colnames(ar.samp) <- c("org", "yr", "pdf", "path", "num_pgs", paste0("samp_",1:12))
+rownames(ar.samp) <- NULL
+
+# Generate sneaky code names for each report (skip I b/c confusing with 1)
+ar.samp <- data.frame(ar.samp) %>%
+  mutate(letter = ifelse(grepl("CIn",org),"A",
+                             ifelse(grepl("DOW",org),"B",
+                                    ifelse(grepl("EDF",org),"C",
+                                           ifelse(grepl("NRD",org),"D",
+                                                  ifelse(grepl("OCN",org),"E",
+                                                         ifelse(grepl("SCF",org),"F",
+                                                                ifelse(grepl("TNC",org),"G",
+                                                                       ifelse(grepl("WCS",org),"H", "J")))))))))
+ar.samp$yr <- as.numeric(as.character(ar.samp$yr))
+ar.samp <- ar.samp %>%
+  group_by(org) %>%
+  mutate(code = paste0(letter,(yr-2000)*3)) %>% # Disguising yr numbers by multiplying 2 digits by 3
+  select(-letter)
+
+currentDate <- Sys.Date()
+write.csv(ar.samp, file=paste0(wd,paste0("/AR_details_sample_",currentDate,".csv")))
+```
+
+  
+```{r IMAGE EXTRACTION, include=FALSE}
+# Nested loops to loop through:
+#   all reports
+#   all 12 random pages being sampled from each report.
+# N.b., initial test threw some errors based on pdf_convert not being able to read some stuff (errors in pdf flate (compression) info)
+# But sample size should still be adequate such that that's not a problem.
+
+# i defines number of reports, j defines number of samples
+num.loops.i <- num.loops <- 1:nrow(ar.samp)
+num.loops.j <- (1:12) # 12 pages to pull from each pdf
+for (i in num.loops.i){
+  for (j in num.loops.j){
+
+    # pdf_convert needs parameters in certain form/doesn't like pasting
+    ar.samp <- data.frame(ar.samp)
+    pdf <- paste0(ar.samp[i,4])
+    page <- as.numeric(paste0(ar.samp[i,(5+j)]))
+
+    pdf_convert(pdf = pdf, format = "png",
+                pages = page, dpi=150,
+                filenames = paste0(image.out.dir, "/", ar.samp$code[i],"_",j,".png"),
+                verbose = TRUE)
+  }
+}
+
+```
+
+
+```{r PREP PILOT, include=FALSE}
+
+# Prep pilot: target 40 images. Start by pulling 1st sample from each report
+pilot.samp_1 <- list.files(image.out.dir, pattern="*_1.png",  full.names = T)
+file.copy(pilot.samp_1, pilot.dir)
+
+# I'm deleting images from pilot.dir that are only text, headshots, etc.
+
+# # Some (most) of those unique IDs for trees need leading zeros
+# grwth$IDsuffix <- grwth$IDsuffix %>%
+#   formatC(., width=3, format = "d", flag = "0")
+
+```
+
+
+
+```{r PREP ROUND 2, include=FALSE}
+
+## OR 2+n
+
+# Pull out 2nd sample from each report; these are not jsut 2nd page in each report b/c I randomized page num to pull above.
+round.6 <- list.files(image.out.dir, pattern="*_6.png",  full.names = T)
+file.copy(round.6, round.6.dir)
+
+###### !!!! ######
+# Copied that folder _ROUND2 to create _ROUND2_DEPLOY. The latter is where I'm editing photos
+# EDIT THEM BEFORE PROCEEDING!!!!!!!!!!!!
+###### !!!! ######
+
+# Now list file names from that _ROUND2_DEPLOY. N.b,. some images have been deleted if they don't fit.
+# Get those names, create code and lu table. Then rename. To do so, need to reset working directory to that folder.
+temp <- paste0(wd,"/AnnualReports_images_ROUND6_DEPLOY")
+
+setwd(temp)
+round.6.short <- list.files(temp, full.names = F)
+# round.6.short <- list.files(getwd(), full.names = F)
+
+
+# I goofed on pilot AND ROUND 3 AND ROUND 4 :(
+# and somehow renamed everything P### without saving a reference list of which matches which.
+# See codes from lines 220 onwards to work backwards to what images are what :/
+# Maybe look at png sizes in PILOT vs. PILOT_DEPLOY to get them lined up
+# But moving forward...
+# Create a look-up table
+code <- sample(1:length(round.6.short), length(round.6.short), replace = FALSE) %>%
+  formatC(., width=3, format = "d", flag = "0")
+code <- paste0("R6",code,".png")
+lu_round.6 <- data.frame(code, round.6.short)
+
+#Rename
+file.rename(list.files(temp), paste0(lu_round.6$code))
+# file.rename(list.files(getwd()), paste0(lu_round.6$code))
+
+setwd(wd)
+# Save lu table
+#### YES DO THIS BUT UN-COMMENT SO YOU DON'T SCREW IT UP ###
+# write.csv(lu_round.6, "lu_round.6.csv")
+
+
+
+```
+
+
+```{r re-create lookup tables}
+temp <- paste0(wd,"/AnnualReports_images_ROUND4_DEPLOY")
+round.4.short <- list.files(temp, full.names = F)
+write.csv(round.4.short, "temp2.csv")
+```

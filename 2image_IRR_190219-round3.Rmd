@@ -1,0 +1,569 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+Image coding IRR
+
+```{r setup, include=FALSE}
+# Load packages
+# install.packages("dplyr")
+# install.packages("tidyr")
+# install.packages("icr")
+library(dplyr)
+library(tidyr)
+library(icr)
+
+# CHANGE IRR_CSV.DIR FOR EACH ROUND!!
+setwd("D:/Shared/BackedUp/Caitlin/NewConsDebate") 
+wd <- ("D:/Shared/BackedUp/Caitlin/NewConsDebate")
+irr_csv.dir <- ("D:/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_ROUND4-7_RESPONSES/IRR_CSVs")
+## Below if not on goshawk 
+# setwd("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate") 
+# wd <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate")
+# irr_csv.dir <- ("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NewConsDebate/AnnualReports_images_ROUND4-7_RESPONSES/IRR_CSVs")
+
+
+# Text extraction functions
+left = function(text, num_char) {
+  substr(text, 1, num_char)
+}
+ 
+mid = function(text, start_num, num_char) {
+  substr(text, start_num, start_num + num_char - 1)
+}
+ 
+right = function(text, num_char) {
+  substr(text, nchar(text) - (num_char-1), nchar(text))
+}
+```
+
+```{r Variable prep, include=FALSE}
+# Extract presence/absence and valence from each variable.
+# For missing data, set to #; for N/A (as in, question was irrelevent), set to 99
+
+# Read in data; UPDATE FOR EACH NEW ROUND
+data <- read.csv("AnnualReports_images_ROUND3_RESPONSES/round3 all.csv")
+# data <- read.csv("AnnualReports_images_ROUND2_RESPONSES/NewCons_ARImage_Form_180810_EDITED.csv")
+# data <- read.csv("AnnualReports_images_ROUND4-7_RESPONSES/NewCons_ARImage_Form_181007 (Responses).csv")
+# Check for weird extra columns and delete if necessary
+data <- data[,1:26]
+
+# Rename columns: coded 1 if following object present; r=raw; will clean to c=code
+# Latest versions of coding dropped some "out" codes about outputs/externalities
+colnames(data)
+new <- c("time", "name", "ID", "r1_humans.v1", "r1_humans.v2",
+         "r1_nonwh", "r1_nonmale", "r1_whmale",
+         "r1_disab", "r1_nonwest",
+         #"r1_land90",
+         "r1_landurban", "r1_landcult",
+         "r1_natres","r1_ag", "r1_restore", # "r1_resout",
+         "r1_recnoext", "r1_recext", # "r1_recout",
+         "r1_animalnonext", "r1_animalext", # "r1_animalout",
+         "r1_logo", "notes")#, "conf")
+colnames(data) <- new
+data$ID <- toupper(as.character(data$ID)) # Set any lower-case to upper-case
+
+#### NOTE I'VE CHANGED DATA IN ORIGINAL .XLS SO .CSV SHOULD BE READY
+# Check for dupes
+temp <- data %>% group_by(name) %>% count(ID)
+temp <- data %>% group_by(ID) %>% count(ID)
+
+
+# 
+# # There were a few dupes, missing data
+# data[115,]$ID #R2053
+# data[116,]$ID #R2053 <-- no way Nick thought was nothing but natural
+# data <-data[-116,] 
+# 
+# # I goofed with a double present/absent
+# data[51,5] <- "present"
+
+# temp <- data %>% group_by(name) %>% count(ID)
+
+#Safe keeping so I don't have to reload
+data.orig <- data
+```
+
+
+```{r Recode responses, include=FALSE}
+# Recode responses
+# Set present --> 1; missing data --> #; NA (as in, question was irrelevent) --> 99
+
+### GENERAL
+# Set humans vs. pristine nature to 1 = humans
+levels(data$r1_humans.v1)
+paste0(levels(data$r1_humans.v1)[1])
+paste0(levels(data$r1_humans.v1)[2])
+data <- data %>%
+  mutate(c1_humans.v1 = ifelse(r1_humans.v1 == paste0(levels(data$r1_humans.v1)[1]), 1, 0))
+
+
+### CHANGE ALL "ABSENT (OR TOO AMBIGUOUS)" TO "ABSENT""
+# BUT WAIT!
+# Can just set present = 1 and all else to 0.
+# Plus, this didn't work yet b/c values were factors, not characters I think.
+# moo <- data.frame(lapply(data, function(x) {
+#   gsub("absent (or too ambiguous to be present)",
+#        "absent",
+#        x)
+# }))
+
+
+
+### REPRESENTATION
+# For representation, we're dropping valence, so anything with present gets 1.
+# ^ Irrelevant for later versions of form with no valence involved)
+
+# HUMANS
+levels(data$r1_humans.v2)
+paste0(levels(data$r1_humans.v2)[1])
+paste0(levels(data$r1_humans.v2)[2])
+paste0(levels(data$r1_humans.v2)[3])
+paste0(levels(data$r1_humans.v2)[4])
+temp <- data %>%
+  mutate(c1_humans.v2 = ifelse(r1_humans.v2 == "", 99,
+                               ifelse(r1_humans.v2 == 
+paste0(levels(data$r1_humans.v2)[3]), 1, 0)))
+# Test it
+temp[,c("r1_humans.v2","c1_humans.v2")]
+# OK, it works so set that to data
+data <- temp
+ 
+
+# NONWHITE
+levels(data$r1_nonwh)
+temp <- data %>%
+  mutate(c1_nonwh = ifelse(r1_nonwh == "", 99,
+                           ifelse(r1_nonwh == paste0(levels(data$r1_nonwh)[3]), 1, 0)))
+# Test it
+temp[,c("r1_nonwh","c1_nonwh")]
+# OK, it works so set that to data
+data <- temp
+
+
+# NONMALE
+levels(data$r1_nonmale)
+temp <- data %>%
+  mutate(c1_nonmale = ifelse(r1_nonmale == "", 99,
+                           ifelse(r1_nonmale == paste0(levels(data$r1_nonmale)[3]),1, 0)))
+temp[,c("r1_nonmale","c1_nonmale")]
+data <- temp
+
+
+# WHMALE
+levels(data$r1_whmale) 
+temp <- data %>%
+  mutate(c1_whmale = ifelse(r1_whmale == "", 99,
+                           ifelse(r1_whmale == paste0(levels(data$r1_whmale)[3]), 1, 0)))
+temp[,c("r1_whmale","c1_whmale")]
+data <- temp
+
+
+# DISAB
+levels(data$r1_disab)
+paste0(levels(data$r1_disab)[4])
+temp <- data %>%
+  mutate(c1_disab = ifelse(r1_disab == "", 99,
+                           ifelse(r1_disab == paste0(levels(data$r1_disab)[4]), 1, 0)))
+temp[,c("r1_disab","c1_disab")]
+data <- temp
+
+
+# NONWEST
+levels(data$r1_nonwest) 
+# In rounds 4-7, one person had present/absent -- toss up. Setting to missing.
+# data$r1_nonwest[data$r1_nonwest == "present, absent"] <- ""
+# data$r1_nonwest[data$ID == "R6033"] # now it's blank
+# data[data$r1_nonwest == "present, absent" ,] # yup, no rows
+levels(data$r1_nonwest) 
+temp <- data %>%
+  mutate(c1_nonwest = ifelse(r1_nonwest == "", 99,
+                           ifelse(r1_nonwest == paste0(levels(data$r1_nonwest)[3]), 1, 0)))
+temp[,c("r1_nonwest","c1_nonwest")]
+data <- temp
+
+### Code below is left over from when I had to accomodate valence. It should still work. And at the end I'll just drop all columns that have _val
+
+### LANDSCAPE
+# HEre, begin creating new column for valence, too. So, for each variable, there's a p/a column and a valence column
+# # 90%
+# levels(data$r1_land90) 
+# temp <- data %>%
+#   mutate(c1_land90 = ifelse(r1_land90 == "", 99,
+#                            ifelse(r1_land90 == paste0(levels(data$r1_land90)[2]), 0, 1))) %>% # sets any present to 1
+#   mutate(c1_land90_val = ifelse(r1_land90 == "present", "#", # sets missing data (i.e., present but no valence) to # 
+#                                  ifelse(r1_land90 == "present;negative", "1",
+#                                         ifelse(r1_land90 == "present;neutral", "2",
+#                                                ifelse(r1_land90 == "present;positive", "3", 99))))) # 99 for NA
+# temp[,c("r1_land90","c1_land90", "c1_land90_val")]
+# data <- temp
+
+
+# urban
+levels(data$r1_landurban)
+temp <- data %>%
+  mutate(c1_landurban = ifelse(r1_landurban == "", 99,
+                           ifelse(r1_landurban == paste0(levels(data$r1_landurban)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_landurban_val = ifelse(r1_landurban == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_landurban == "present;negative", "1",
+                                        ifelse(r1_landurban == "present;neutral", "2",
+                                               ifelse(r1_landurban == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_landurban","c1_landurban")]#, "c1_landurban_val")]
+data <- temp
+
+
+# land_cultivate
+levels(data$r1_landcult)
+temp <- data %>%
+  mutate(c1_landcult = ifelse(r1_landcult == "", 99,
+                           ifelse(r1_landcult == paste0(levels(data$r1_landcult)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_landcult_val = ifelse(r1_landcult == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_landcult == "present;negative", "1",
+                                        ifelse(r1_landcult == "present;neutral", "2",
+                                               ifelse(r1_landcult == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_landcult","c1_landcult")]#, "c1_landcult_val")]
+temp2 <- temp %>% select(r1_landcult, c1_landcult)
+data <- temp
+
+
+### NAT RES
+# nat res
+levels(data$r1_natres)
+# data$r1_natres[data$r1_natres == "present, absent"] <- ""
+# data$r1_natres[data$r1_natres == "present, absent (or too ambiguous to be present)"] <- ""
+# data$r1_natres[data$ID == "R4040"] # now it's blank
+# data$r1_natres[data$ID == "R6070"] # now it's blank
+# data[data$r1_natres == "present, absent" ,] # yup, no rows
+# data[data$r1_natres == "present, absent (or too ambiguous to be present)" ,] # yup, no rows
+temp <- data %>%
+  mutate(c1_natres = ifelse(r1_natres == "", 99,
+                           ifelse(r1_natres == paste0(levels(data$r1_natres)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_natres_val = ifelse(r1_natres == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_natres == "present;negative", "1",
+                                        ifelse(r1_natres == "present;neutral", "2",
+                                               ifelse(r1_natres == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_natres","c1_natres")]#, "c1_natres_val")]
+temp2 <- temp %>% select(r1_natres, c1_natres)
+data <- temp
+
+
+# ag
+levels(data$r1_ag)
+temp <- data %>%
+  mutate(c1_ag = ifelse(r1_ag == "", 99,
+                           ifelse(r1_ag == paste0(levels(data$r1_ag)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_ag_val = ifelse(r1_ag == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_ag == "present;negative", "1",
+                                        ifelse(r1_ag == "present;neutral", "2",
+                                               ifelse(r1_ag == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_ag","c1_ag")]#, "c1_ag_val")]
+data <- temp
+
+
+# restore
+levels(data$r1_restore)
+temp <- data %>%
+  mutate(c1_restore = ifelse(r1_restore == "", 99,
+                           ifelse(r1_restore == paste0(levels(data$r1_restore)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_restore_val = ifelse(r1_restore == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_restore == "present;negative", "1",
+                                        ifelse(r1_restore == "present;neutral", "2",
+                                               ifelse(r1_restore == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_restore","c1_restore")]#, "c1_restore_val")]
+temp2 <- temp %>% select(r1_restore, c1_restore)
+data <- temp
+
+
+# # nat res out
+# levels(data$r1_resout)
+# temp <- data %>%
+#   mutate(c1_resout = ifelse(r1_resout == "", 99,
+#                            ifelse(r1_resout == paste0(levels(data$r1_resout)[2]), 0, 1))) %>% # sets any present to 1
+#   mutate(c1_resout_val = ifelse(r1_resout == "present", "#", # sets missing data (i.e., present but no valence) to # 
+#                                  ifelse(r1_resout == "present;negative", "1",
+#                                         ifelse(r1_resout == "present;neutral", "2",
+#                                                ifelse(r1_resout == "present;positive", "3", 99))))) # 99 for NA
+# temp[,c("r1_resout","c1_resout", "c1_resout_val")]
+# data <- temp
+
+### RECREATION
+# non extractive rec
+levels(data$r1_recnoext)
+temp <- data %>%
+  mutate(c1_recnoext = ifelse(r1_recnoext == "", 99,
+                           ifelse(r1_recnoext == paste0(levels(data$r1_recnoext)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_recnoext_val = ifelse(r1_recnoext == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_recnoext == "present;negative", "1",
+                                        ifelse(r1_recnoext == "present;neutral", "2",
+                                               ifelse(r1_recnoext == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_recnoext","c1_recnoext")]#, "c1_recnoext_val")]
+temp2 <- temp %>% select(r1_recnoext, c1_recnoext)
+data <- temp
+
+
+# extractive rec
+levels(data$r1_recext)
+temp <- data %>%
+  mutate(c1_recext = ifelse(r1_recext == "", 99,
+                           ifelse(r1_recext == paste0(levels(data$r1_recext)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_recext_val = ifelse(r1_recext == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_recext == "present;negative", "1",
+                                        ifelse(r1_recext == "present;neutral", "2",
+                                               ifelse(r1_recext == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_recext","c1_recext")]#, "c1_recext_val")]
+temp2 <- temp %>% select(r1_recext, c1_recext)
+data <- temp
+
+
+# # rec output
+# levels(data$r1_recout)
+# temp <- data %>%
+#   mutate(c1_recout = ifelse(r1_recout == "", 99,
+#                            ifelse(r1_recout == paste0(levels(data$r1_recout)[2]), 0, 1))) %>% # sets any present to 1
+#   mutate(c1_recout_val = ifelse(r1_recout == "present", "#", # sets missing data (i.e., present but no valence) to # 
+#                                  ifelse(r1_recout == "present;negative", "1",
+#                                         ifelse(r1_recout == "present;neutral", "2",
+#                                                ifelse(r1_recout == "present;positive", "3", 99))))) # 99 for NA
+# temp[,c("r1_recout","c1_recout", "c1_recout_val")]
+# data <- temp
+
+
+### ANIMALS
+# non human aniamls - non extractive
+levels(data$r1_animalnonext)
+temp <- data %>%
+  mutate(c1_animalnonext = ifelse(r1_animalnonext == "", 99,
+                           ifelse(r1_animalnonext == paste0(levels(data$r1_animalnonext)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_animalnonext_val = ifelse(r1_animalnonext == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_animalnonext == "present;negative", "1",
+                                        ifelse(r1_animalnonext == "present;neutral", "2",
+                                               ifelse(r1_animalnonext == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_animalnonext","c1_animalnonext", "c1_animalnonext_val")]
+temp2 <- temp %>% select(r1_animalnonext, c1_animalnonext)
+data <- temp
+
+
+# non human aniamls - extraxctive
+levels(data$r1_animalext)
+temp <- data %>%
+  mutate(c1_animalext = ifelse(r1_animalext == "", 99,
+                           ifelse(r1_animalext == paste0(levels(data$r1_animalext)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_animalext_val = ifelse(r1_animalext == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_animalext == "present;negative", "1",
+                                        ifelse(r1_animalext == "present;neutral", "2",
+                                               ifelse(r1_animalext == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_animalext","c1_animalext", "c1_animalext_val")]
+data <- temp
+
+########### REMOVING THIS VARIABLE, SO, JUST NOT RECODING FROM RAW TO CODED
+# non human aniamls - out
+# levels(data$r1_animalout)
+# temp <- data %>%
+#   mutate(c1_animalout = ifelse(r1_animalout == "", 99,
+#                            ifelse(r1_animalout == paste0(levels(data$r1_animalout)[2]), 0, 1))) %>% # sets any present to 1
+#   mutate(c1_animalout_val = ifelse(r1_animalout == "present", "#", # sets missing data (i.e., present but no valence) to # 
+#                                  ifelse(r1_animalout == "present;negative", "1",
+#                                         ifelse(r1_animalout == "present;neutral", "2",
+#                                                ifelse(r1_animalout == "present;positive", "3", 99))))) # 99 for NA
+# temp[,c("r1_animalout","c1_animalout", "c1_animalout_val")]
+# data <- temp
+###########
+
+### INDUSTRY
+# logo
+levels(data$r1_logo)
+temp <- data %>%
+  mutate(c1_logo = ifelse(r1_logo == "", 99,
+                           ifelse(r1_logo == paste0(levels(data$r1_logo)[3]), 1, 0))) %>% # sets any present to 1
+  mutate(c1_logo_val = ifelse(r1_logo == "present", "#", # sets missing data (i.e., present but no valence) to # 
+                                 ifelse(r1_logo == "present;negative", "1",
+                                        ifelse(r1_logo == "present;neutral", "2",
+                                               ifelse(r1_logo == "present;positive", "3", 99))))) # 99 for NA
+temp[,c("r1_logo","c1_logo", "c1_logo_val")]
+data <- temp
+```
+
+
+```{r Tidy, include=FALSE}
+# Remove extraneous columns, including original raw data AND all valence columns
+temp <- data[, -grep("_val", colnames(data))]  # checks out.
+data <- data[, -grep("_val", colnames(data))]
+
+temp <- data[, -grep("r1_", colnames(data))]  # checks out.
+data <- data[, -grep("r1_", colnames(data))]
+
+data <- data %>% select(-time,  -notes) #, -conf)
+
+
+# write.csv(data,"round3_clean.csv")
+
+
+###########################################################################
+### I DON'T THINK THIS IS NECESSARY -- SPREAD WILL AUTOMAGICALLY DO SO? ###
+# # Need to add in NAs for SarahP -- stopped at P026
+# temp <- data %>% group_by(ID) %>% count()
+# 67-26
+# df <- data.frame(matrix(ncol = 33, nrow = (67-26)))
+# df[,1] <- "SarahP"
+# df[,2] <- c(27:67) %>% as.character()
+# # Add leading zeros & P
+# df[,2] <- paste0("PO",df[,2])
+# colnames(df) <-  colnames(data)
+# 
+# # Alt:
+# # library(stringr)
+# # str_pad(df[,2], 4, pad = "0")
+# # df[,2] <- df[,2] %>%
+# #   formatC(., width=4, format = "d", flag = 0)
+# 
+# # Append Sarah's blank data
+# temp <- rbind(data, df) # checks out.
+# data <- rbind(data, df)
+###########################################################################
+
+# Looks like ICR package needs NA instead of 99.
+# But note that this means MISSING DATA (like Sarah's)...
+# gets coded the same as N/A <-- IS THIS A PROBLEM??
+temp[temp=="99"]<-NA # checks out
+data[data=="99"]<-NA
+temp[temp=="#"]<-NA # checks out
+data[data=="#"]<-NA
+```
+
+
+```{r KRIPPENDORF ALPHA, include=FALSE}
+
+# Spread into readable matrix by ICR, one question at a time
+# Spread key is the "new" variables; value get shoved underneath
+# Krippalpha() defaults to metric = nominal
+
+vars <- NULL
+alpha_all <- NULL
+# alpha_noCait <- NULL
+alpha_noSarahP <- NULL
+
+num.loops <- 3:ncol(data) # Qs start in col 3
+for (i in num.loops){
+  
+  # establish variable
+  var <- colnames(data[i])
+  
+  # set-up matrix with caitlin responses
+  temp <- data %>%
+  select(name, ID, var) %>%
+  spread(key = ID, var) %>%
+  select(-name) %>%
+  as.matrix()
+
+  # run kripp
+  a <- krippalpha(temp)[[1]]
+
+  # set-up matrix w/o sarahp responses
+  temp <- data %>%
+  select(name, ID, var) %>%
+  # filter(! name == "Caitlin") %>%
+  filter(! name == "SarahP") %>%  
+  spread(key = ID, var) %>%
+  select(-name, -org_name, -year, -ID_code) %>%
+  as.matrix()
+    
+  # a_noCait <- krippalpha(temp)[[1]]
+  a_noSarahP <- krippalpha(temp)[[1]]
+  
+  vars <- rbind(vars, var)
+  alpha_all <- rbind(alpha_all, a)
+  # alpha_noCait <- rbind(alpha_noCait, a_noCait)
+  alpha_noSarahP <- rbind(alpha_noSarahP, a_noSarahP)
+}
+
+results <- cbind(vars, alpha_all, alpha_noSarahP) %>% as.data.frame
+colnames(results) <- c("var", "alpha_all", "alpha_noSarahP")
+results$alpha_all <- as.numeric(results$alpha_all)
+results$alpha_noSarahP <- as.numeric(results$alpha_noSarahP)
+results$improve <- (results$alpha_all - results$alpha_noSarahP)
+
+# results <- cbind(vars, alpha_all) 
+# colnames(results) <- c("var", "alpha_all")
+# results$alpha_all <- as.numeric(results$alpha_all)
+
+
+write.csv(results, "AnnualReports_images_ROUND2_RESPONSES/k-alpha_image-round2_180830.csv")
+
+
+
+
+c1_humans.v1 <- data %>%
+  select(name, ID, c1_humans.v1) %>%
+  spread(key = ID, value = c1_humans.v1) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_humans.v1, metric = "nominal")
+
+c1_humans.v2 <- data %>%
+  select(name, ID, c1_humans.v2) %>%
+  spread(key = ID, value = c1_humans.v2) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_humans.v2, metric = "nominal")
+
+c1_nonwh <- data %>%
+  select(name, ID, c1_nonwh) %>%
+  spread(key = ID, value = c1_nonwh) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_nonwh, metric = "nominal")
+#w/o caitlin
+c1_nonwh <- data %>%
+  select(name, ID, c1_nonwh) %>%
+  filter(! name == "Caitlin") %>%
+  spread(key = ID, value = c1_nonwh) %>%
+  select(-name) %>%
+  as.matrix()
+a <- krippalpha(c1_nonwh, metric = "nominal")
+a[[1]]
+
+c1_nonmale <- data %>%
+  select(name, ID, c1_nonmale) %>%
+  spread(key = ID, value = c1_nonmale) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_nonmale, metric = "nominal")
+
+c1_disab <- data %>%
+  select(name, ID, c1_disab) %>%
+  spread(key = ID, value = c1_disab) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_disab, metric = "nominal")
+
+c1_nonwest <- data %>%
+  select(name, ID, c1_nonwest) %>%
+  spread(key = ID, value = c1_nonwest) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_nonwest, metric = "nominal")
+
+c1_landurban <- data %>%
+  select(name, ID, c1_landurban) %>%
+  spread(key = ID, value = c1_landurban) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_landurban, metric = "nominal")
+
+c1_resout <- data %>%
+  select(name, ID, c1_resout) %>%
+  spread(key = ID, value = c1_resout) %>%
+  select(-name) %>%
+  as.matrix()
+krippalpha(c1_resout, metric = "nominal")
+
+###################### START HERE:
+#### DELETE NON+WEST_VAL. FIND LAND 90
+
+
+```
+
+
+
+
